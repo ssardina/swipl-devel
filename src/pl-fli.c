@@ -3,8 +3,9 @@
     Author:        Jan Wielemaker
     E-mail:        J.Wielemaker@vu.nl
     WWW:           http://www.swi-prolog.org
-    Copyright (c)  1996-2017, University of Amsterdam
+    Copyright (c)  1996-2018, University of Amsterdam
                               VU University Amsterdam
+			      CWI, Amsterdam
     All rights reserved.
 
     Redistribution and use in source and binary forms, with or without
@@ -34,6 +35,7 @@
 */
 
 /*#define O_DEBUG 1*/
+#define DEBUG_DISCARDED_EXCEPTION 1
 #include "pl-incl.h"
 #include "os/pl-ctype.h"
 #include "os/pl-utf8.h"
@@ -4290,6 +4292,10 @@ PL_raise_exception(term_t exception)
   if ( PL_is_variable(exception) )	/* internal error */
     fatalError("Cannot throw variable exception");
 
+#ifdef DEBUG_DISCARDED_EXCEPTION
+  save_backtrace("exception");
+#endif
+
   LD->exception.processing = TRUE;
   if ( !PL_same_term(exception, exception_bin) ) /* re-throwing */
   { except_class co = classify_exception(exception_bin);
@@ -4358,6 +4364,9 @@ PL_clear_foreign_exception(LocalFrame fr)
 
   Sdprintf("Thread %d (%Ws): foreign predicate %s did not clear exception: \n\t",
 	   tid, name, predicateName(fr->predicate));
+#ifdef DEBUG_DISCARDED_EXCEPTION
+  print_backtrace_named("exception");
+#endif
 }
 #else
   Sdprintf("Foreign predicate %s did not clear exception: ",
