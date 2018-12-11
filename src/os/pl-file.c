@@ -4211,11 +4211,12 @@ do_close(IOSTREAM *s, int force)
     if ( s == Sinput )
       Sclearerr(s);
     else if ( s == Soutput || s == Serror )
-    { Sflush(s);
-      Sclearerr(s);
+    { if ( Sflush(s) < 0 )
+      { Sclearerr(s);
+	PL_clear_exception();
+      }
     } else
-    { Sflush(s);
-      if ( Sclose(s) < 0 )
+    { if ( Sclose(s) < 0 )
 	PL_clear_exception();
     }
 
