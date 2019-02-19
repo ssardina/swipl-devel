@@ -3,7 +3,8 @@
     Author:        Jan Wielemaker
     E-mail:        J.Wielemaker@vu.nl
     WWW:           http://www.swi-prolog.org
-    Copyright (c)  2017, VU University Amsterdam
+    Copyright (c)  2017-2019, VU University Amsterdam
+			      CWI, Amsterdam
     All rights reserved.
 
     Redistribution and use in source and binary forms, with or without
@@ -42,20 +43,84 @@
 #define PL_erase(r)	  free_fastheap(r)
 
 static void	free_worklist(worklist *wl);
+static void	free_worklist_set(worklist_set *wls);
 #ifdef O_DEBUG
 static void	print_worklist(const char *prefix, worklist *wl);
 #endif
+static void	del_child_component(tbl_component *parent, tbl_component *child);
+static void	free_components_set(component_set *cs);
 
 
+		 /*******************************
+		 *	     COMPONENTS		*
+		 *******************************/
+
+static tbl_component *
+new_component(void)
+{ tbl_component *c = PL_malloc(sizeof(*c));
+
+  memset(c, 0, sizeof(*c));
+
+  return c;
+}
+
+static void
+free_component(tbl_component *c)
+{ if ( c->parent )
+    del_child_component(c->parent, c);
+  if ( c->worklist )
+    free_worklist_set(c->worklist);
+  if ( c->created_worklists )
+    free_worklist_set(c->created_worklists);
+  if ( c->children )
+    free_components_set(c->children);
+
+  PL_free(c);
+}
+
+
+static void
+add_child_component(tbl_component *parent, tbl_component *child)
+{ component_set *cs;
+
+  if ( !(cs=parent->children) )
+  { cs = PL_malloc(sizeof(*cs));
+    initBuffer(&cs->members);
+    parent->children = cs;
+  }
+
+  addBuffer(&cs->members, child, tbl_component*);
+}
+
+static void
+del_child_component(tbl_component *parent, tbl_component *child)
+{ component_set *cs = parent->children;
+  tbl_component **bp = baseBuffer(&cs->members, tbl_component*);
+  tbl_component **tp = topBuffer(&cs->members, tbl_component*);
+
+  for(; *bp != child && bp < tp; bp++)
+    ;
+  assert(bp < tp);
+  memmove(bp, bp+1, (tp-bp-1)*sizeof(*bp));
+}
+
+static void
+free_components_set(component_set *cs)
+{ discardBuffer(&cs->members);
+  PL_free(cs);
+}
+
+
+		 /*******************************
+		 *	      WORKLISTS		*
+		 *******************************/
 
 static worklist_set *
 thread_worklist(PL_local_data_t *ld, int global)
 { worklist_set **wlp;
 
   if ( !ld->tabling.component )
-  { ld->tabling.component = PL_malloc(sizeof(*ld->tabling.component));
-    memset(ld->tabling.component, 0, sizeof(*ld->tabling.component));
-  }
+    ld->tabling.component = new_component();
 
   if ( global )
     wlp = &ld->tabling.component->worklist;
@@ -152,9 +217,7 @@ reset_newly_created_worklists(PL_local_data_t *ld)
 
     if ( (wls = c->created_worklists) )
     { c->created_worklists = NULL;
-      discardBuffer(&wls->members);
-      initBuffer(&wls->members);	/* TBD: Why!? */
-      PL_free(wls);
+      free_worklist_set(wls);
     }
   }
 }
@@ -167,6 +230,11 @@ newly_created_worklists(worklist ***wlp ARG_LD)
   return entriesBuffer(&wls->members, worklist*);
 }
 
+static void
+free_worklist_set(worklist_set *wls)
+{ discardBuffer(&wls->members);
+  PL_free(wls);
+}
 
 
 		 /*******************************
@@ -1085,22 +1153,24 @@ PRED_IMPL("$tbl_create_component", 0, tbl_create_component, 0)
 
 
 static
-PRED_IMPL("$tbl_create_subcomponent", 0, tbl_create_subcomponent, 0)
+PRED_IMPL("$tbl_create_subcomponent", 1, tbl_create_subcomponent, 0)
 { PRED_LD
-  tbl_component *c;
+  tbl_component *c, *p;
 
 						/* no component; create main */
   if ( !LD->tabling.has_scheduling_component )
   { LD->tabling.has_scheduling_component = TRUE;
-    return TRUE;
+    if ( !LD->tabling.component )
+      LD->tabling.component = new_component();
+    return PL_unify_pointer(A1, LD->tabling.component);
   }
-						/* existing: create sub */
-  c = PL_malloc(sizeof(*c));
-  memset(c, 0, sizeof(*c));
-  c->parent = LD->tabling.component;
-  LD->tabling.component = c;
 
-  return TRUE;
+  c = new_component();
+  c->parent = (p=LD->tabling.component);
+  LD->tabling.component = c;
+  add_child_component(p, c);
+
+  return PL_unify_pointer(A1, c);
 }
 
 
@@ -1111,7 +1181,7 @@ PRED_IMPL("$tbl_completed_component", 0, tbl_completed_component, 0)
 
   if ( (c=LD->tabling.component) && c->parent )
   { LD->tabling.component = c->parent;
-    PL_free(c);
+    free_component(c);
   } else
   { LD->tabling.has_scheduling_component = FALSE;
   }
@@ -1172,7 +1242,7 @@ BeginPredDefs(tabling)
   PRED_DEF("$tbl_table_complete_all",	0, tbl_table_complete_all,   0)
   PRED_DEF("$tbl_table_discard_all",    0, tbl_table_discard_all,    0)
   PRED_DEF("$tbl_create_component",	0, tbl_create_component,     0)
-  PRED_DEF("$tbl_create_subcomponent",  0, tbl_create_subcomponent,  0)
+  PRED_DEF("$tbl_create_subcomponent",  1, tbl_create_subcomponent,  0)
   PRED_DEF("$tbl_completed_component",  0, tbl_completed_component,  0)
   PRED_DEF("$tbl_abolish_all_tables",   0, tbl_abolish_all_tables,   0)
   PRED_DEF("$tbl_destroy_table",        1, tbl_destroy_table,        0)

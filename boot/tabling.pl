@@ -177,7 +177,7 @@ start_tabling(Wrapper, Worker, WrapperNoModes, ModeArgs) :-
     (   Status == complete
     ->  trie_gen(Trie, WrapperNoModes, ModeArgs)
     ;   (   Status == fresh
-        ->  '$tbl_create_subcomponent',
+        ->  '$tbl_create_subcomponent'(_SubComponent),
             catch(run_leader(Wrapper, WrapperNoModes, ModeArgs, Worker, Trie),
                   E, true),
             (   var(E)

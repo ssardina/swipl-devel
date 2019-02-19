@@ -52,10 +52,16 @@ typedef struct worklist_set
 { buffer members;
 } worklist_set;
 
+typedef struct component_set
+{ buffer members;
+} component_set;
+
 typedef struct tbl_component
 { struct tbl_component *parent;
-  struct worklist_set *worklist;		/* Worklist of current query */
-  struct worklist_set *created_worklists;	/* Worklists created */
+  struct tbl_component *merged_with;
+  component_set *children;		/* Child components */
+  worklist_set  *worklist;		/* Worklist of current query */
+  worklist_set  *created_worklists;	/* Worklists created */
 } tbl_component;
 
 
