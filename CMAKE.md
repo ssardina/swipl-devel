@@ -34,8 +34,8 @@ the current git version.
 
 ### Getting the source
 
-The   source   may   be    downloaded    as     a    tar    ball   from
-http://www.swi-prolog.org or downloaded using git.  The git sequence is:
+The   source   may   be    downloaded    as     a    tar    ball    from
+http://www.swi-prolog.org or downloaded using git. The git sequence is:
 
     git clone https://github.com/SWI-Prolog/swipl-devel.git
     cd swipl-devel
@@ -84,15 +84,15 @@ If this fails, one of these measures may be appropriate:
 The default build type is `RelWithDebInfo`.  Alternatives may be selected
 using e.g.,
 
-    cmake -DCMAKE_BUILD_TYPE=Debug ..
-    cmake -DCMAKE_BUILD_TYPE=Release ..
+    cmake -DCMAKE_BUILD_TYPE=Debug -G Ninja ..
+    cmake -DCMAKE_BUILD_TYPE=Release -G Ninja ..
 
 ## Install location
 
 To install in a particular location, use `-DCMAKE_INSTALL_PREFIX:PATH=/path/to/install`. For example, this will build SWI to be installed in `/usr/local/swipl-git` and will not include the documentation (see below for other customization options):
 
     cmake -DCMAKE_INSTALL_PREFIX:PATH=/usr/local/swipl-git -DINSTALL_DOCUMENTATION=OFF ..
-    
+
 After `sudo make install`, SWI will be located in `/usr/local/swipl-git`. Next adapt environment variables `SWI_HOME_DIR` and `LD_LIBRARY_PATH` to point to the new compiled and installed SWI system:
 
     export SWI_HOME_DIR=/usr/local/swipl-git/lib/swipl/
@@ -383,7 +383,10 @@ generate the Ubuntu PPA releases.
 ## Issues
 
 - Provide a FindSWIPL.cmake?
-- Problem compiling SWI when another SWI is installed already; see [issue](https://github.com/SWI-Prolog/swipl-devel/issues/435)
+- Problem compiling SWI when another SWI is installed already and you
+  have environment variables set to facilitate e.g., embedding in Java.
+  The variable names and possibly conflicting values depend on the OS.
+  See [issue](https://github.com/SWI-Prolog/swipl-devel/issues/435)
 
 
 
